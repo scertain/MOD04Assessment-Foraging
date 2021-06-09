@@ -1,15 +1,21 @@
 package learn.foraging.ui;
 
+import learn.foraging.domain.ForageService;
+import learn.foraging.domain.ItemService;
 import learn.foraging.models.Category;
 import learn.foraging.models.Forage;
 import learn.foraging.models.Forager;
 import learn.foraging.models.Item;
+import learn.foraging.models.reports.CollectedCategoryValue;
+import learn.foraging.models.reports.CollectedItemWeight;
+import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Component
 public class View {
 
     private final ConsoleIO io;
@@ -20,17 +26,19 @@ public class View {
 
     public MainMenuOption selectMainMenuOption() {
         displayHeader("Main Menu");
+
         int min = Integer.MAX_VALUE;
         int max = Integer.MIN_VALUE;
+
         for (MainMenuOption option : MainMenuOption.values()) {
             if (!option.isHidden()) {
                 io.printf("%s. %s%n", option.getValue(), option.getMessage());
+                min = Math.min(min, option.getValue());
+                max = Math.max(max, option.getValue());
             }
-            min = Math.min(min, option.getValue());
-            max = Math.max(max, option.getValue());
         }
 
-        String message = String.format("Select [%s-%s]: ", min, max - 1);
+        String message = String.format("Select [%s-%s]: ", min, max);
         return MainMenuOption.fromValue(io.readInt(message, min, max));
     }
 
@@ -44,14 +52,14 @@ public class View {
     }
 
     public Forager chooseForager(List<Forager> foragers) {
-        if (foragers.size() == 0) {
+        if (foragers == null || foragers.isEmpty()) {
             io.println("No foragers found");
             return null;
         }
 
         int index = 1;
         for (Forager forager : foragers.stream().limit(25).collect(Collectors.toList())) {
-            io.printf("%s: %s %s%n", index++, forager.getFirstName(), forager.getLastName());
+            io.printf("%s: %s %s%n", index++, forager.getLastName(), forager.getFirstName());
         }
         index--;
 
@@ -106,39 +114,49 @@ public class View {
         forage.setItem(item);
         forage.setDate(io.readLocalDate("Forage date [MM/dd/yyyy]: "));
         String message = String.format("Kilograms of %s: ", item.getName());
-        forage.setKilograms(io.readDouble(message, 0.001, 250.0));
+        forage.setKilograms(io.readDouble(message,
+                ForageService.MIN_FORAGE_KILOGRAMS,
+                ForageService.MAX_FORAGE_KILOGRAMS));
         return forage;
     }
 
     public Item makeItem() {
         displayHeader(MainMenuOption.ADD_ITEM.getMessage());
         Item item = new Item();
-        item.setCategory(getItemCategory());
+        Category category = getItemCategory();
+        item.setCategory(category);
         item.setName(io.readRequiredString("Item Name: "));
-        item.setDollarPerKilogram(io.readBigDecimal("$/Kg: ", BigDecimal.ZERO, new BigDecimal("7500.00")));
+
+        // only prompt the user for the $/kg if it is allowed.
+        if (category == Category.EDIBLE || category == Category.MEDICINAL) {
+            item.setDollarPerKilogram(io.readBigDecimal("$/Kg: ",
+                    ItemService.MIN_DOLLAR_PER_KILOGRAM,
+                    ItemService.MAX_DOLLAR_PER_KILOGRAM));
+        }
         return item;
+    }
+
+    public Forager makeForager() {
+        displayHeader(MainMenuOption.ADD_FORAGER.getMessage());
+        Forager forager = new Forager();
+        forager.setFirstName(io.readRequiredString("Forager First Name: "));
+        forager.setLastName(io.readRequiredString("Forager Last Name: "));
+        forager.setState(io.readRequiredString("Forager State: "));
+        return forager;
     }
 
     public GenerateRequest getGenerateRequest() {
         displayHeader(MainMenuOption.GENERATE.getMessage());
-        LocalDate start = io.readLocalDate("Select a start date [MM/dd/yyyy]: ");
-        if (start.isAfter(LocalDate.now())) {
-            displayStatus(false, "Start date must be in the past.");
-            return null;
-        }
-
-        LocalDate end = io.readLocalDate("Select an end date [MM/dd/yyyy]: ");
-        if (end.isAfter(LocalDate.now()) || end.isBefore(start)) {
-            displayStatus(false, "End date must be in the past and after the start date.");
-            return null;
-        }
-
         GenerateRequest request = new GenerateRequest();
-        request.setStart(start);
-        request.setEnd(end);
-        request.setCount(io.readInt("Generate how many random forages [1-500]?: ", 1, 500));
+//        request.getStart(io.readLocalDate("Select a start date [MM/dd/yyyy]: "));
+        request.setStart(io.readLocalDate("Select a start deate [MM/dd/yyyy]: "));
+        request.setEnd(io.readLocalDate("End date must be in the past and after the start date."));
+        request.setCount(io.readInt(
+                String.format("Generate how many random forages [1-%s]", ForageService.GENERATE_FORAGES_LIMIT),
+                1, ForageService.GENERATE_FORAGES_LIMIT));
         return request;
     }
+
 
     public void enterToContinue() {
         io.readString("Press [Enter] to continue.");
@@ -191,6 +209,35 @@ public class View {
 
         for (Item item : items) {
             io.printf("%s: %s, %s, %.2f $/kg%n", item.getId(), item.getName(), item.getCategory(), item.getDollarPerKilogram());
+        }
+    }
+
+    public void displayForagers(List<Forager> foragers) {
+        if (foragers == null || foragers.isEmpty()) {
+            io.println("No foragers found.");
+        }
+        for (Forager forager : foragers) {
+            io.printf("%s, %s (%s)%n", forager.getLastName(), forager.getFirstName(), forager.getState());
+        }
+    }
+
+    public void displayCollectedItemWeights(List<CollectedItemWeight> collectedItemWeights) {
+        if (collectedItemWeights == null || collectedItemWeights.isEmpty()) {
+            io.println("No forages found");
+            return;
+        }
+        for (CollectedItemWeight collectedItemWeight : collectedItemWeights) {
+            io.printf("%s: %.2f kg%n", collectedItemWeight.getItemName(), collectedItemWeight.getKilograms());
+        }
+    }
+
+    public void displayCollectedCategoryValues(List<CollectedCategoryValue> collectedCategoryValues) {
+        if (collectedCategoryValues == null || collectedCategoryValues.isEmpty()) {
+            io.println("No forages found.");
+            return;
+        }
+        for (CollectedCategoryValue collectedCategoryValue : collectedCategoryValues) {
+            io.printf("%s: $%,.2f%n", collectedCategoryValue.getCategory(), collectedCategoryValue.getValue());
         }
     }
 }

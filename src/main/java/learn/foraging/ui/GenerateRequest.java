@@ -8,9 +8,7 @@ public class GenerateRequest {
     private LocalDate end;
     private int count;
 
-    public LocalDate getStart() {
-        return start;
-    }
+    public LocalDate getStart() { return start; }
 
     public void setStart(LocalDate start) {
         this.start = start;

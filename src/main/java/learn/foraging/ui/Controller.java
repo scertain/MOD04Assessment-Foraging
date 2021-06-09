@@ -9,10 +9,14 @@ import learn.foraging.models.Category;
 import learn.foraging.models.Forage;
 import learn.foraging.models.Forager;
 import learn.foraging.models.Item;
+import learn.foraging.models.reports.CollectedCategoryValue;
+import learn.foraging.models.reports.CollectedItemWeight;
+import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 import java.util.List;
 
+@Component
 public class Controller {
 
     private final ForagerService foragerService;
@@ -45,6 +49,9 @@ public class Controller {
                 case VIEW_FORAGES_BY_DATE:
                     viewByDate();
                     break;
+                case VIEW_FORAGERS_BY_LAST_NAME:
+                    viewForagersByLastName();
+                    break;
                 case VIEW_ITEMS:
                     viewItems();
                     break;
@@ -52,19 +59,16 @@ public class Controller {
                     addForage();
                     break;
                 case ADD_FORAGER:
-                    view.displayStatus(false, "NOT IMPLEMENTED");
-                    view.enterToContinue();
+                    addForager();
                     break;
                 case ADD_ITEM:
                     addItem();
                     break;
                 case REPORT_KG_PER_ITEM:
-                    view.displayStatus(false, "NOT IMPLEMENTED");
-                    view.enterToContinue();
+                    viewReportKgPerItem();
                     break;
                 case REPORT_CATEGORY_VALUE:
-                    view.displayStatus(false, "NOT IMPLEMENTED");
-                    view.enterToContinue();
+                    viewReportCategoryValue();
                     break;
                 case GENERATE:
                     generate();
@@ -78,6 +82,15 @@ public class Controller {
         LocalDate date = view.getForageDate();
         List<Forage> forages = forageService.findByDate(date);
         view.displayForages(forages);
+        view.enterToContinue();
+    }
+
+    private void viewForagersByLastName() {
+        view.displayHeader(MainMenuOption.VIEW_FORAGERS_BY_LAST_NAME.getMessage());
+        String prefix = view.getForagerNamePrefix();
+        List<Forager> foragers = foragerService.findByLastName(prefix);
+        view.displayHeader("Foragers");
+        view.displayForagers(foragers);
         view.enterToContinue();
     }
 
@@ -121,11 +134,42 @@ public class Controller {
         }
     }
 
+    private void addForager() throws DataException {
+        Forager forager = view.makeForager();
+        Result<Forager> result = foragerService.add(forager);
+        if (!result.isSuccess()) {
+            view.displayStatus(false, result.getErrorMessages());
+        } else {
+            String successMessage = String.format("Forager %s created.", result.getPayload().getId());
+            view.displayStatus(true, successMessage);
+        }
+    }
+
+    private void viewReportKgPerItem() {
+        view.displayHeader(MainMenuOption.REPORT_KG_PER_ITEM.getMessage());
+        LocalDate date = view.getForageDate();
+        List<CollectedItemWeight> collectedItemWeights = forageService.findCollectedItemWeight(date);
+        view.displayCollectedItemWeights(collectedItemWeights);
+        view.enterToContinue();
+    }
+
+    private void viewReportCategoryValue() {
+        view.displayHeader(MainMenuOption.REPORT_CATEGORY_VALUE.getMessage());
+        LocalDate date = view.getForageDate();
+        List<CollectedCategoryValue> collectedCategoryValues = forageService.findCollectedCategoryValue(date);
+        view.displayCollectedCategoryValues(collectedCategoryValues);
+        view.enterToContinue();
+    }
+
     private void generate() throws DataException {
         GenerateRequest request = view.getGenerateRequest();
-        if (request != null) {
-            int count = forageService.generate(request.getStart(), request.getEnd(), request.getCount());
-            view.displayStatus(true, String.format("%s forages generated.", count));
+        Result<List<Forage>> result = forageService.generate(
+                request.getStart(), request.getEnd(), request.getCount());
+        if (!result.isSuccess()) {
+            view.displayStatus(false, result.getErrorMessages());
+        } else {
+            String successMessage = String.format("%s forages generated.", result.getPayload().size());
+            view.displayStatus(true, successMessage);
         }
     }
 

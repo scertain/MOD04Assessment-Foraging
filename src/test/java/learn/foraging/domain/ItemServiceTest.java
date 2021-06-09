@@ -1,7 +1,7 @@
 package learn.foraging.domain;
 
 import learn.foraging.data.DataException;
-import learn.foraging.data.ItemRepositoryDouble;
+import learn.foraging.data.doubles.ItemRepositoryDouble;
 import learn.foraging.models.Category;
 import learn.foraging.models.Item;
 import org.junit.jupiter.api.Test;

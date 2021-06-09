@@ -4,12 +4,18 @@ import learn.foraging.data.DataException;
 import learn.foraging.data.ItemRepository;
 import learn.foraging.models.Category;
 import learn.foraging.models.Item;
+import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.net.PortUnreachableException;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Service
 public class ItemService {
+
+    public static final BigDecimal MIN_DOLLAR_PER_KILOGRAM = new BigDecimal("0.01");
+    public static final BigDecimal MAX_DOLLAR_PER_KILOGRAM = new BigDecimal("7500.00");
 
     private final ItemRepository repository;
 
